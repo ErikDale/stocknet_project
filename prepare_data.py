@@ -2,6 +2,27 @@ import numpy as np
 import os
 import json
 import re
+import torch.nn as nn
+import torch
+
+
+class TweetLstmNet(nn.Module):
+    """
+    Class that converts a tweet to a vector of numbers.
+    """
+    def __init__(self, vocab_length):
+        super(TweetLstmNet, self).__init__()
+        self.embedding = nn.Embedding(vocab_length, 10)
+        self.lstm = nn.LSTM(input_size=10,
+                           hidden_size=20,
+                           num_layers=1,
+                           batch_first=True,
+                           bidirectional=False)
+
+    def forward(self, inp):
+        embed = self.embedding(inp)
+        output, hidden = self.lstm(embed)
+        return hidden[0][0][0].cpu().detach().numpy()
 
 
 def combine_tweets_prices():
@@ -10,10 +31,12 @@ def combine_tweets_prices():
     """
     price_values, targets = extract_prices()
 
-    tweets = extract_tweets()
+    tweets, uniquewords = extract_tweets()
 
     keys = tweets.keys()
 
+    # Combining the prices and tweets from the same dates
+    # and putting them in one array
     combined = []
 
     for i in range(len(price_values)):
@@ -24,14 +47,16 @@ def combine_tweets_prices():
                 combined.append(keys_str + values_str)
                 break
 
-    [r.pop(6) for r in combined]
+    # Removing date column
+    [r.pop(20) for r in combined]
 
     target_combined = combined[5:]
 
     targets = []
 
     for i in range(len(target_combined)):
-        if float(target_combined[i][6]) > float(target_combined[i][9]):
+        print(target_combined)
+        if float(target_combined[i][21]) > float(target_combined[i][24]):
             targets.append(0)
         else:
             targets.append(1)
@@ -112,8 +137,11 @@ def extract_tweets():
     for key in dict.keys():
         string = dict[key]
         vector = make_text_into_numbers(string, uniquewords)
-        dict[key] = vector
-    return dict
+        model = TweetLstmNet(len(uniquewords))
+        vector = torch.unsqueeze(torch.LongTensor(vector), dim=0)
+        hidden_vector = model(vector)
+        dict[key] = hidden_vector
+    return dict, uniquewords
 
 
 def extract_prices():
