@@ -52,11 +52,12 @@ def combine_tweets_prices():
 
     target_combined = combined[5:]
 
+    print(target_combined)
+
     targets = []
 
     for i in range(len(target_combined)):
-        print(target_combined)
-        if float(target_combined[i][21]) > float(target_combined[i][24]):
+        if float(target_combined[i][20]) > float(target_combined[i][23]):
             targets.append(0)
         else:
             targets.append(1)
@@ -79,7 +80,6 @@ def combine_tweets_prices():
             for k in range(len(values[i][j])):
                 values[i][j][k] = float(values[i][j][k])
     return values, targets
-
 
 def make_text_into_numbers(text, uniquewords):
     """
