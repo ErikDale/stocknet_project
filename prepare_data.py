@@ -2,28 +2,29 @@ import numpy as np
 import os
 import json
 import re
-import torch.nn as nn
 import torch
+from models import TweetLstmNet
+from torch.utils.data import Dataset
 
 
-class TweetLstmNet(nn.Module):
-    """
-    Class that converts a tweet to a vector of numbers.
-    """
-    def __init__(self, vocab_length):
-        super(TweetLstmNet, self).__init__()
-        self.embedding = nn.Embedding(vocab_length, 10)
-        self.lstm = nn.LSTM(input_size=10,
-                           hidden_size=20,
-                           num_layers=1,
-                           batch_first=True,
-                           bidirectional=False)
+# Dataset class
+class CustomDataset(Dataset):
+    def __init__(self, x, y, transform, target_tranform):
+        x = np.array(x)
+        y = np.array(y)
+        self.x = torch.from_numpy(x)
+        self.y = torch.from_numpy(y)  # n_samples, 1
+        self.n_samples = len(x)
+        self.transform = transform
+        self.target_transform = target_tranform
 
-    def forward(self, inp):
-        embed = self.embedding(inp)
-        output, hidden = self.lstm(embed)
-        return hidden[0][0][0].cpu().detach().numpy()
+    def __getitem__(self, index):
+        x_item = self.x[index]
+        y_item = self.y[index]
+        return x_item, y_item
 
+    def __len__(self):
+        return self.n_samples
 
 def combine_tweets_prices():
     """
@@ -188,19 +189,3 @@ def extract_prices():
 
     values = values[:len(targets)]
     return values, targets
-
-
-def combine_tweets_prices2():
-    """
-    Method that combines the tweets and prices that fall on the same day
-    """
-    price_values, targets = extract_prices()
-
-    for i in range(len(price_values)):
-        price_values[i][0] = np.delete(price_values[i][0], 0)
-        # [r.pop(0) for r in price_values[i]]
-        print(price_values[i][0])
-        #values_str = [str(k) for k in price_values[i][0]]
-
-
-
