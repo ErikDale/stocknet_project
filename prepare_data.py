@@ -42,17 +42,15 @@ def combine_tweets_prices():
     for i in range(len(price_values)):
         for key in keys:
             if key == price_values[i][0][0]:
-                keys_str = [str(j) for j in tweets[key]]
-                values_str = [str(k) for k in price_values[i][0]]
+                # Removing date column
+                price_values[i][0] = np.delete(price_values[i][0], 0)
+                keys_str = [float(j) for j in tweets[key]]
+                values_str = [float(k) for k in price_values[i][0]]
                 combined.append(keys_str + values_str)
                 break
 
-    # Removing date column
-    [r.pop(20) for r in combined]
 
     target_combined = combined[5:]
-
-    print(target_combined)
 
     targets = []
 
@@ -69,17 +67,20 @@ def combine_tweets_prices():
             break
         value = []
         for j in range(i, i + 5):
+            # Normalizing prices (between 0 and 1)
+            combined[j][20:25] = normalize(combined[j][20:25], 0, 1)
             value.append(combined[j])
 
         values.append(value)
 
     values = values[:len(targets)]
 
-    for i in range(len(values)):
-        for j in range(len(values[i])):
-            for k in range(len(values[i][j])):
-                values[i][j][k] = float(values[i][j][k])
+    #for i in range(len(values)):
+     #   for j in range(len(values[i])):
+      #      for k in range(len(values[i][j])):
+       #         values[i][j][k] = float(values[i][j][k])
     return values, targets
+
 
 def make_text_into_numbers(text, uniquewords):
     """
@@ -144,6 +145,19 @@ def extract_tweets():
     return dict, uniquewords
 
 
+def normalize(arr, t_min, t_max):
+    """
+    Method that normalizes an array
+    """
+    norm_arr = []
+    diff = t_max - t_min
+    diff_arr = max(arr) - min(arr)
+    for i in arr:
+        temp = (((i - min(arr))*diff)/diff_arr) + t_min
+        norm_arr.append(temp)
+    return norm_arr
+
+
 def extract_prices():
     """Method that extracts the prices of the stocks"""
     cols = [0, 1, 2, 3, 4, 5]
@@ -174,3 +188,19 @@ def extract_prices():
 
     values = values[:len(targets)]
     return values, targets
+
+
+def combine_tweets_prices2():
+    """
+    Method that combines the tweets and prices that fall on the same day
+    """
+    price_values, targets = extract_prices()
+
+    for i in range(len(price_values)):
+        price_values[i][0] = np.delete(price_values[i][0], 0)
+        # [r.pop(0) for r in price_values[i]]
+        print(price_values[i][0])
+        #values_str = [str(k) for k in price_values[i][0]]
+
+
+
