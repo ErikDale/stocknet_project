@@ -9,27 +9,32 @@ from torch.utils.data import Dataset
 
 # Dataset class
 class CustomDataset(Dataset):
-    def __init__(self, x, y, transform, target_tranform):
-        x = np.array(x)
-        y = np.array(y)
-        self.x = torch.from_numpy(x)
-        self.y = torch.from_numpy(y)  # n_samples, 1
-        self.n_samples = len(x)
+    def __init__(self, tweets, prices, targets, transform, target_tranform):
+        tweets = np.array(tweets)
+        prices = np.array(prices)
+        targets = np.array(targets)
+        self.tweets = torch.from_numpy(tweets)
+        self.prices = torch.from_numpy(prices)
+        self.targets = torch.from_numpy(targets)  # n_samples, 1
+        self.n_samples = len(tweets)
         self.transform = transform
         self.target_transform = target_tranform
 
     def __getitem__(self, index):
-        x_item = self.x[index]
-        y_item = self.y[index]
-        return x_item, y_item
+        tweet_item = self.tweets[index]
+        price_item = self.prices[index]
+        target_item = self.targets[index]
+        return tweet_item, price_item, target_item
 
     def __len__(self):
         return self.n_samples
+
 
 def combine_tweets_prices():
     """
     Method that combines the tweets and prices that fall on the same day
     """
+    # Extract the data
     price_values, targets = extract_prices()
 
     tweets, uniquewords = extract_tweets()
@@ -47,40 +52,48 @@ def combine_tweets_prices():
                 price_values[i][0] = np.delete(price_values[i][0], 0)
                 keys_str = [float(j) for j in tweets[key]]
                 values_str = [float(k) for k in price_values[i][0]]
-                combined.append(keys_str + values_str)
+                combined.append([keys_str, values_str])
                 break
 
-
+    # Finding the targets
     target_combined = combined[5:]
 
     targets = []
 
     for i in range(len(target_combined)):
-        if float(target_combined[i][20]) > float(target_combined[i][23]):
+        if target_combined[i][1][0] > target_combined[i][1][3]:
             targets.append(0)
         else:
             targets.append(1)
 
-    values = []
+    #values = []
+
+    # Creating two list of five day windows
+    # One for the tweets and one for the prices
+    tweets = []
+    prices = []
 
     for i in range(len(combined)):
         if i > len(combined) - 5:
             break
-        value = []
+        #value = []
+        tweet = []
+        price = []
         for j in range(i, i + 5):
             # Normalizing prices (between 0 and 1)
-            combined[j][20:25] = normalize(combined[j][20:25], 0, 1)
-            value.append(combined[j])
+            combined[j][1][0:5] = normalize(combined[j][1][0:5], 0, 1)
+            tweet += combined[j][0]
+            price.append([combined[j][1]])
+            #value.append(combined[j])
+        tweets.append(tweet)
+        prices.append(price)
+        #values.append(value)
 
-        values.append(value)
-
-    values = values[:len(targets)]
-
-    #for i in range(len(values)):
-     #   for j in range(len(values[i])):
-      #      for k in range(len(values[i][j])):
-       #         values[i][j][k] = float(values[i][j][k])
-    return values, targets
+    #values = values[:len(targets)]
+    #print(values)
+    tweets = tweets[:len(targets)]
+    prices = prices[:len(targets)]
+    return tweets, prices, targets, uniquewords
 
 
 def make_text_into_numbers(text, uniquewords):
@@ -136,13 +149,14 @@ def extract_tweets():
 
     allwords = ' '.join(dict.values()).lower().split(' ')
     uniquewords = list(set(allwords))
+    # Converting each tweet to numbers
     for key in dict.keys():
         string = dict[key]
         vector = make_text_into_numbers(string, uniquewords)
-        model = TweetLstmNet(len(uniquewords))
-        vector = torch.unsqueeze(torch.LongTensor(vector), dim=0)
-        hidden_vector = model(vector)
-        dict[key] = hidden_vector
+        #model = TweetLstmNet(len(uniquewords))
+        #vector = torch.unsqueeze(torch.LongTensor(vector), dim=0)
+        #hidden_vector = model(vector)
+        dict[key] = vector
     return dict, uniquewords
 
 
@@ -170,6 +184,7 @@ def extract_prices():
 
     targets = []
 
+    # Creating the targets
     for i in range(len(target_prices)):
         if float(target_prices[i][1]) > float(target_prices[i][4]):
             targets.append(0)
@@ -178,6 +193,7 @@ def extract_prices():
 
     values = []
 
+    # Creating the values in five day windows
     for i in range(len(aapl)):
         if i > len(aapl) - 5:
             break
