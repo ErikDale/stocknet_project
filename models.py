@@ -4,13 +4,14 @@ import torch.nn.functional as F
 
 batch_size = 32
 
-class LstmNet2(nn.Module):
+
+class LstmNet(nn.Module):
     """
     Class that represents a model consisting of an embedding layer,
     two lstm layers and two linear layers
     """
     def __init__(self, vocab_length):
-        super(LstmNet2, self).__init__()
+        super(LstmNet, self).__init__()
         # Embedding layer
         self.embedding = nn.Embedding(vocab_length, 10)
 
@@ -38,6 +39,8 @@ class LstmNet2(nn.Module):
         tweet_inp = hidden[0][0].cpu().detach()
         inp = torch.FloatTensor()
         price_inp = torch.squeeze(price_inp)
+
+        # Adding padding to the ones that are not correct size
         if tweet_inp.shape[0] != batch_size:
             iter = batch_size - tweet_inp.shape[0]
             tensor = torch.LongTensor([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
@@ -59,76 +62,3 @@ class LstmNet2(nn.Module):
         x = self.fc2(x)
         x = torch.sigmoid(x)
         return x
-
-
-class LstmNet(nn.Module):
-    """
-    Class that represents an lstm model
-    """
-    def __init__(self):
-        super(LstmNet, self).__init__()
-        self.lstm = nn.LSTM(input_size=25,
-                           hidden_size=1024,
-                           num_layers=1,
-                           batch_first=True,
-                           bidirectional=False)
-        self.fc1 = nn.Linear(1024, 2048)
-        self.fc2 = nn.Linear(2048, 1)
-
-    def forward(self, inp):
-        output, hidden = self.lstm(inp)
-        x = self.fc1(output[:, -1, :])
-        x = F.relu(x)
-        x = self.fc2(x)
-        x = torch.sigmoid(x)
-        return x
-
-
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.fc1 = nn.Linear(5, 50)
-        self.fc2 = nn.Linear(50, 25)
-        self.fc3 = nn.Linear(25, 1)  # 2 classes
-
-    def forward(self, x):
-        x = torch.sigmoid(self.fc1(x))
-        x = torch.sigmoid(self.fc2(x))
-        x = self.fc3(x)
-        return x
-
-
-class TweetLstmNet(nn.Module):
-    """
-    Class that converts a tweet to a vector of numbers.
-    """
-    def __init__(self, vocab_length):
-        super(TweetLstmNet, self).__init__()
-        self.embedding = nn.Embedding(vocab_length, 10)
-        self.lstm = nn.LSTM(input_size=10,
-                           hidden_size=20,
-                           num_layers=1,
-                           batch_first=True,
-                           bidirectional=False)
-
-    def forward(self, inp):
-        embed = self.embedding(inp)
-        output, hidden = self.lstm(embed)
-        return hidden[0][0][0].cpu().detach().numpy()
-
-
-class PriceLstmNet(nn.Module):
-    """
-    Class that converts the prices to a vector of numbers.
-    """
-    def __init__(self):
-        super(PriceLstmNet, self).__init__()
-        self.lstm = nn.LSTM(input_size=5,
-                           hidden_size=20,
-                           num_layers=1,
-                           batch_first=True,
-                           bidirectional=False)
-
-    def forward(self, inp):
-        output, hidden = self.lstm(inp)
-        return hidden[0][0][0].cpu().detach().numpy()

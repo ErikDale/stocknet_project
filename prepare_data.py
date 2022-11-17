@@ -3,12 +3,59 @@ import os
 import json
 import re
 import torch
-from models import TweetLstmNet
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader, random_split
 from torch.utils.data import Dataset
+
+batch_size = 16
+
+
+def createDataset():
+    """
+    Method that creates the train and test dataloaders and returns them
+    """
+    tweets, prices, targets, unique_words = combine_tweets_prices()
+
+    # Transform for values
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ]
+    )
+
+    # Transform for targets
+    target_transform = transforms.Compose([
+        transforms.ToTensor()
+    ]
+    )
+
+    # Initlaizes dataset
+    dataset = CustomDataset(tweets, prices, targets, transform, target_transform)
+
+    # Splits the dataset 80% train, 20% test
+    train_ds, test_ds = random_split(dataset, [round(len(dataset) * 0.8), round(len(dataset) * 0.2)])
+
+    # Creates dataloaders
+    train_dl = DataLoader(dataset=train_ds, shuffle=True, batch_size=batch_size)
+    test_dl = DataLoader(dataset=test_ds, shuffle=True, batch_size=batch_size)
+
+    # Saves dataloaders to file
+    torch.save(train_dl, "dataloaders/train_dl_16_batch.pt")
+    torch.save(test_dl, "dataloaders/test_dl_16_batch.pt")
+
+    # open file in write mode
+    # with open(r'./dataloaders/unique_words.txt', 'w') as fp:
+    #   for item in unique_words:
+    # write each item on a new line
+    #     fp.write("%s\n" % item)
+
+    return train_dl, test_dl, unique_words
 
 
 # Dataset class
 class CustomDataset(Dataset):
+    """
+    Dataset class
+    """
     def __init__(self, tweets, prices, targets, transform, target_tranform):
         tweets = np.array(tweets)
         prices = np.array(prices)
@@ -66,7 +113,7 @@ def combine_tweets_prices():
         else:
             targets.append(1)
 
-    #values = []
+    # values = []
 
     # Creating two list of five day windows
     # One for the tweets and one for the prices
@@ -76,7 +123,7 @@ def combine_tweets_prices():
     for i in range(len(combined)):
         if i > len(combined) - 5:
             break
-        #value = []
+        # value = []
         tweet = []
         price = []
         for j in range(i, i + 5):
@@ -84,13 +131,13 @@ def combine_tweets_prices():
             combined[j][1][0:5] = normalize(combined[j][1][0:5], 0, 1)
             tweet += combined[j][0]
             price.append([combined[j][1]])
-            #value.append(combined[j])
+            # value.append(combined[j])
         tweets.append(tweet)
         prices.append(price)
-        #values.append(value)
+        # values.append(value)
 
-    #values = values[:len(targets)]
-    #print(values)
+    # values = values[:len(targets)]
+    # print(values)
     tweets = tweets[:len(targets)]
     prices = prices[:len(targets)]
     return tweets, prices, targets, uniquewords
@@ -107,7 +154,7 @@ def make_text_into_numbers(text, uniquewords):
             numbers.append(uniquewords.index(n))
         except ValueError:
             numbers.append(0)
-    numbers = numbers + [0,0,0,0,0]
+    numbers = numbers + [0, 0, 0, 0, 0]
 
     return numbers[:6]
 
@@ -153,9 +200,9 @@ def extract_tweets():
     for key in dict.keys():
         string = dict[key]
         vector = make_text_into_numbers(string, uniquewords)
-        #model = TweetLstmNet(len(uniquewords))
-        #vector = torch.unsqueeze(torch.LongTensor(vector), dim=0)
-        #hidden_vector = model(vector)
+        # model = TweetLstmNet(len(uniquewords))
+        # vector = torch.unsqueeze(torch.LongTensor(vector), dim=0)
+        # hidden_vector = model(vector)
         dict[key] = vector
     return dict, uniquewords
 
@@ -168,7 +215,7 @@ def normalize(arr, t_min, t_max):
     diff = t_max - t_min
     diff_arr = max(arr) - min(arr)
     for i in arr:
-        temp = (((i - min(arr))*diff)/diff_arr) + t_min
+        temp = (((i - min(arr)) * diff) / diff_arr) + t_min
         norm_arr.append(temp)
     return norm_arr
 

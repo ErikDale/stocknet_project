@@ -1,48 +1,48 @@
 import torch
+import torch.nn as nn
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, random_split
 from prepare_data import combine_tweets_prices, CustomDataset
-from models import LstmNet2
+from models import LstmNet
+import matplotlib.pyplot as plt
+import sklearn.metrics as skm
 
 
 # Define relevant variables for the ML task
-batch_size = 16
+batch_size = 32
 
-tweets, prices, targets, unique_words = combine_tweets_prices()
+# train_dl, test_dl, unique_words = createDataset()
+unique_words = []
+# open file and read the content in a list
+with open(r'./dataloaders/unique_words.txt', 'r') as fp:
+    for line in fp:
+        # remove linebreak from a current name
+        # linebreak is the last character of each line
+        x = line[:-1]
+
+        # add current item to the list
+        unique_words.append(x)
 
 
-# Transform for values
-transform = transforms.Compose([
-    transforms.ToTensor()
-]
-)
-
-# Transform for targets
-target_transform = transforms.Compose([
-    transforms.ToTensor()
-]
-)
-
-# Initlaizes dataset
-dataset = CustomDataset(tweets, prices, targets, transform, target_transform)
-
-# Splits the dataset 80% train, 20% test
-train_ds, test_ds = random_split(dataset, [round(len(dataset) * 0.8), round(len(dataset) * 0.2)])
-
-# Creates dataloaders
-train_dl = DataLoader(dataset=train_ds, shuffle=True, batch_size=batch_size)
-test_dl = DataLoader(dataset=test_ds, shuffle=True, batch_size=batch_size)
+test_dl = torch.load("./dataloaders/test_dl_32_batch.pt")
 
 # Initialize the model
-model = LstmNet2(len(unique_words))
+model = LstmNet(len(unique_words))
+
+criterion = nn.BCELoss()
+
+losses = []
+
+classes = [0, 1]
 
 
 def test_model():
-    """Testing the model"""
+    """
+    Testing the model
+    """
+    predictions = []
+    ground_truth = []
     with torch.no_grad():
-        num_correct = 0
-        fp = 0
-        counter = 0
         for batch_idx, (tweet, price, targets) in enumerate(test_dl):
             ## Add padding to the targets
             if targets.shape[0] != batch_size:
@@ -52,26 +52,50 @@ def test_model():
                     targets = torch.cat((targets, tensor))
             # Generate prediction
             prediction = model(torch.squeeze(tweet.type(torch.LongTensor)), price.type(torch.FloatTensor))
+            loss = criterion(torch.squeeze(prediction).type(torch.FloatTensor), targets.type(torch.FloatTensor))
+            losses.append(loss.detach().numpy())
 
             for i in range(len(prediction)):
-                counter += 1
                 # Predicted class value round()
                 predicted_class = round(float(prediction[i]))
+                predictions.append(predicted_class)
+
                 actual_target = targets[i]
+                ground_truth.append(int(actual_target))
 
                 print(
                     f'Prediction: {prediction[i]}, Predicted class {predicted_class} - Actual target: {actual_target}')
 
-                if predicted_class == actual_target:
-                    num_correct += 1
-                elif (predicted_class == 1 and actual_target == 0) or (
-                        predicted_class == 0 and actual_target == 1):
-                    fp += 1
+        # Plotting confusion matrix and printing accuracy, f1, precision and recall
+        cm = skm.confusion_matrix(y_true=ground_truth, y_pred=predictions, labels=classes)
+        disp = skm.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=classes)
+        disp.plot()
+        plt.show()
+        print("Sk learn Accuracy: ", skm.accuracy_score(y_true=ground_truth, y_pred=predictions))
+        print("Sk learn F1: ", skm.f1_score(y_true=ground_truth, y_pred=predictions, labels=classes))
+        print("Sk learn precision: ", skm.precision_score(y_true=ground_truth, y_pred=predictions, labels=classes))
+        print("Sk learn recall: ", skm.recall_score(y_true=ground_truth, y_pred=predictions, labels=classes))
 
-        print("Accuracy: ", (num_correct / counter) * 100)
+
+def plotLoss():
+    x_values = list(range(len(losses)))
+
+    # plotting the points
+    plt.plot(x_values, losses)
+
+    # naming the x axis
+    plt.xlabel('Epochs')
+    # naming the y axis
+    plt.ylabel('Loss')
+
+    plt.title('Test Loss graph')
+
+    # function to show the plot
+    plt.show()
 
 
 # Loading a model
-model.load_state_dict(torch.load("./models/test.model"))
+model.load_state_dict(torch.load("./models/16_batch_bce.model"))
 
 test_model()
+plotLoss()

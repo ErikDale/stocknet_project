@@ -1,51 +1,45 @@
 import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, random_split
-from prepare_data import combine_tweets_prices, CustomDataset
-from models import LstmNet, LstmNet2
+from models import LstmNet
+import matplotlib.pyplot as plt
+from prepare_data import createDataset
 
 # Define relevant variables for the ML task
-batch_size = 32
-learning_rate = 0.001
+batch_size = 16
+learning_rate = 0.003
 num_epochs = 200
 
-tweets, prices, targets, unique_words = combine_tweets_prices()
+
+# train_dl, test_dl, unique_words = createDataset()
+unique_words = []
+# open file and read the content in a list
+with open(r'./dataloaders/unique_words.txt', 'r') as fp:
+    for line in fp:
+        # remove linebreak from a current name
+        # linebreak is the last character of each line
+        x = line[:-1]
+
+        # add current item to the list
+        unique_words.append(x)
 
 
-# Transform for values
-transform = transforms.Compose([
-    transforms.ToTensor()
-]
-)
+train_dl = torch.load("./dataloaders/train_dl_16_batch.pt")
 
-# Transform for targets
-target_transform = transforms.Compose([
-    transforms.ToTensor()
-]
-)
-
-# Initlaizes dataset
-dataset = CustomDataset(tweets, prices, targets, transform, target_transform)
-
-# Splits the dataset 80% train, 20% test
-train_ds, test_ds = random_split(dataset, [round(len(dataset) * 0.8), round(len(dataset) * 0.2)])
-
-# Creates dataloaders
-train_dl = DataLoader(dataset=train_ds, shuffle=True, batch_size=batch_size)
-test_dl = DataLoader(dataset=test_ds, shuffle=True, batch_size=batch_size)
 
 # Initialize the model
-model = LstmNet2(len(unique_words))
+model = LstmNet(len(unique_words))
 
 # Initialize the loss and optimizer functions
 criterion = nn.BCELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+losses = []
+
 
 def train_model():
     """Training the model"""
+    loss = None
     for epoch in range(num_epochs):
         for batch_idx, (tweet, price, targets) in enumerate(train_dl):
             tweet = tweet.to(device=device)
@@ -64,12 +58,31 @@ def train_model():
             optimizer.step()
             if (epoch % 25) == 0:
                 print(loss.detach().numpy())
+        losses.append(loss.detach().numpy())
 
     # Saving the model
-    path = './models/test.model'
+    path = 'models/16_batch_bce.model'
     torch.save(model.state_dict(), path)
     print('Model saved as ' + path)
 
 
+def plotLoss():
+    x_values = list(range(len(losses)))
+
+    # plotting the points
+    plt.plot(x_values, losses)
+
+    # naming the x axis
+    plt.xlabel('Epochs')
+    # naming the y axis
+    plt.ylabel('Loss')
+
+    plt.title('Train Loss graph')
+
+    # function to show the plot
+    plt.show()
+
+
 train_model()
+plotLoss()
 
