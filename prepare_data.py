@@ -1,13 +1,85 @@
-import numpy as np
 import os
-import json
+import numpy as np
 import re
+import json
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, random_split
 from torch.utils.data import Dataset
 
 batch_size = 16
+
+
+def combine_tweets_prices():
+    """
+    Method that combines the tweets and prices that fall on the same day
+    """
+    # Extract the data
+    price_values = extract_prices()
+
+    tweets, uniquewords = extract_tweets()
+
+    # Combining the prices and tweets from the same dates
+    # and putting them in one array
+    combined = []
+
+    for j in range(len(price_values)):
+        keys = tweets[j].keys()
+
+        dates = [row[0] for row in price_values[j]]
+
+        new_prices = []
+
+        for row in price_values[j]:
+            new_prices.append(np.delete(row, 0))
+
+        for i in range(len(price_values[j])):
+            for key in keys:
+                if key == dates[i]:
+                    # Removing date column
+                    #price_values[i] = np.delete(price_values[i], 0)
+                    keys_float = [float(j) for j in tweets[j][key]]
+                    values_float = [float(k) for k in new_prices[i]]
+                    combined.append([keys_float, values_float])
+                    break
+
+    # Finding the targets
+    target_combined = combined[5:]
+
+    targets = []
+
+    for i in range(1, len(target_combined)):
+        if target_combined[i][1][4] > target_combined[i-1][1][4]:
+            targets.append(0)
+        else:
+            targets.append(1)
+
+    # values = []
+
+    # Creating two list of five day windows
+    # One for the tweets and one for the prices
+    tweets = []
+    prices = []
+
+    for i in range(len(combined)):
+        if i > len(combined) - 5:
+            break
+        # value = []
+        tweet = []
+        price = []
+        for j in range(i, i + 5):
+            # Normalizing prices (between 0 and 1)
+            combined[j][1][0:5] = normalize(combined[j][1][0:5], 0, 1)
+            tweet += combined[j][0]
+            price.append([combined[j][1]])
+            # value.append(combined[j])
+        tweets.append(tweet)
+        prices.append(price)
+        # values.append(value)
+
+    tweets = tweets[:len(targets)]
+    prices = prices[:len(targets)]
+    return tweets, prices, targets, uniquewords
 
 
 def createDataset():
@@ -39,14 +111,14 @@ def createDataset():
     test_dl = DataLoader(dataset=test_ds, shuffle=True, batch_size=batch_size)
 
     # Saves dataloaders to file
-    torch.save(train_dl, "dataloaders/train_dl_16_batch.pt")
-    torch.save(test_dl, "dataloaders/test_dl_16_batch.pt")
+    torch.save(train_dl, "dataloaders/bigger_train_dl_16_batch.pt")
+    torch.save(test_dl, "dataloaders/bigger_test_dl_16_batch.pt")
 
     # open file in write mode
-    # with open(r'./dataloaders/unique_words.txt', 'w') as fp:
-    #   for item in unique_words:
-    # write each item on a new line
-    #     fp.write("%s\n" % item)
+   # with open(r'./dataloaders/more_unique_words.txt', 'w', encoding="utf-8") as fp:
+         #for item in unique_words:
+            # write each item on a new line
+            #fp.write("%s\n" % item)
 
     return train_dl, test_dl, unique_words
 
@@ -77,70 +149,17 @@ class CustomDataset(Dataset):
         return self.n_samples
 
 
-def combine_tweets_prices():
-    """
-    Method that combines the tweets and prices that fall on the same day
-    """
-    # Extract the data
-    price_values, targets = extract_prices()
+def extract_prices():
+    price_files = os.listdir("./stocknet-dataset-master/price/raw/")
+    cols = [0, 1, 2, 3, 4, 5]
 
-    tweets, uniquewords = extract_tweets()
-
-    keys = tweets.keys()
-
-    # Combining the prices and tweets from the same dates
-    # and putting them in one array
-    combined = []
-
-    for i in range(len(price_values)):
-        for key in keys:
-            if key == price_values[i][0][0]:
-                # Removing date column
-                price_values[i][0] = np.delete(price_values[i][0], 0)
-                keys_str = [float(j) for j in tweets[key]]
-                values_str = [float(k) for k in price_values[i][0]]
-                combined.append([keys_str, values_str])
-                break
-
-    # Finding the targets
-    target_combined = combined[5:]
-
-    targets = []
-
-    for i in range(len(target_combined)):
-        if target_combined[i][1][0] > target_combined[i][1][3]:
-            targets.append(0)
-        else:
-            targets.append(1)
-
-    # values = []
-
-    # Creating two list of five day windows
-    # One for the tweets and one for the prices
-    tweets = []
     prices = []
+    for file in price_files:
+        price_list = np.loadtxt("./stocknet-dataset-master/price/raw/" + file, delimiter=",", dtype=str, usecols=cols,
+                          skiprows=1)
+        prices.append(price_list)
 
-    for i in range(len(combined)):
-        if i > len(combined) - 5:
-            break
-        # value = []
-        tweet = []
-        price = []
-        for j in range(i, i + 5):
-            # Normalizing prices (between 0 and 1)
-            combined[j][1][0:5] = normalize(combined[j][1][0:5], 0, 1)
-            tweet += combined[j][0]
-            price.append([combined[j][1]])
-            # value.append(combined[j])
-        tweets.append(tweet)
-        prices.append(price)
-        # values.append(value)
-
-    # values = values[:len(targets)]
-    # print(values)
-    tweets = tweets[:len(targets)]
-    prices = prices[:len(targets)]
-    return tweets, prices, targets, uniquewords
+    return prices
 
 
 def make_text_into_numbers(text, uniquewords):
@@ -176,35 +195,36 @@ def read_text_file(file_path, dict, file_name):
 
 
 def extract_tweets():
-    """
-    Method that extracts the tweets
-    :return: an array containing the different tweets
-    """
-    dict = {}
-    # Folder Path
-    path = "./stocknet-dataset-master/tweet/preprocessed/AAPL"
-    # Read text File
-    # iterate through all file
-    for file in os.listdir(path):
-        file_path = f"{path}/{file}"
-        read_text_file(file_path, dict, file)
-    # Removing non-alphanumeric character from the tweets
-    for key in dict.keys():
-        string = dict[key]
-        string = re.sub(r'[^A-Za-z0-9 ]+', '', string)
-        dict[key] = string
+    tweet_folders = os.listdir("./stocknet-dataset-master/tweet/preprocessed")
 
-    allwords = ' '.join(dict.values()).lower().split(' ')
-    uniquewords = list(set(allwords))
-    # Converting each tweet to numbers
-    for key in dict.keys():
-        string = dict[key]
-        vector = make_text_into_numbers(string, uniquewords)
-        # model = TweetLstmNet(len(uniquewords))
-        # vector = torch.unsqueeze(torch.LongTensor(vector), dim=0)
-        # hidden_vector = model(vector)
-        dict[key] = vector
-    return dict, uniquewords
+    all_unique_words = []
+
+
+    dict_array = []
+
+    for folder in tweet_folders:
+        dict = {}
+        path = "./stocknet-dataset-master/tweet/preprocessed/" + folder
+        for file in os.listdir(path):
+            file_path = f"{path}/{file}"
+            read_text_file(file_path, dict, file)
+
+        allwords = ' '.join(dict.values()).lower().split(' ')
+        uniquewords = list(set(allwords))
+        all_unique_words += uniquewords
+        # Converting each tweet to numbers
+        for key in dict.keys():
+            string = dict[key]
+            # Removing non-alphanumeric character from the tweets
+            string = re.sub(r'[^A-Za-z0-9 ]+', '', string)
+            dict[key] = string
+            vector = make_text_into_numbers(string, uniquewords)
+            # model = TweetLstmNet(len(uniquewords))
+            # vector = torch.unsqueeze(torch.LongTensor(vector), dim=0)
+            # hidden_vector = model(vector)
+            dict[key] = vector
+        dict_array.append(dict)
+    return dict_array, all_unique_words
 
 
 def normalize(arr, t_min, t_max):
@@ -220,35 +240,4 @@ def normalize(arr, t_min, t_max):
     return norm_arr
 
 
-def extract_prices():
-    """Method that extracts the prices of the stocks"""
-    cols = [0, 1, 2, 3, 4, 5]
 
-    aapl = np.loadtxt("./stocknet-dataset-master/price/raw/AAPL.csv", delimiter=",", dtype=str, usecols=cols,
-                      skiprows=1)
-
-    target_prices = aapl[5:]
-
-    targets = []
-
-    # Creating the targets
-    for i in range(len(target_prices)):
-        if float(target_prices[i][1]) > float(target_prices[i][4]):
-            targets.append(0)
-        else:
-            targets.append(1)
-
-    values = []
-
-    # Creating the values in five day windows
-    for i in range(len(aapl)):
-        if i > len(aapl) - 5:
-            break
-        value = []
-        for j in range(i, i + 5):
-            value.append(aapl[j])
-
-        values.append(value)
-
-    values = values[:len(targets)]
-    return values, targets
