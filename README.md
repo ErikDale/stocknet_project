@@ -1,6 +1,18 @@
 # stocknet_project
 
-## Illustration of One of Our Suggested Models
+## File Structure
+
+### Folders 
+
+#### dataloaders
+
+The ``dataloaders`` folder contains the dataloaders we used in the project as well as the vocabularies we created when encoding the tweets.
 
 
-![](images/StockNet_model.png "StockNet Model Suggestion")
+#### models
+The ``models`` folder contains the different models we have created written to file.
+
+
+#### stocknet-dataset-manster
+The ``stocknet-dataset-manster`` folder contains the stock dataset we used in the project.
+
