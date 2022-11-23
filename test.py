@@ -1,20 +1,16 @@
 import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, random_split
-from prepare_data import combine_tweets_prices, CustomDataset
 from models import LstmNet
 import matplotlib.pyplot as plt
 import sklearn.metrics as skm
 
 
-# Define relevant variables for the ML task
 batch_size = 32
 
-# train_dl, test_dl, unique_words = createDataset()
+# Getting unique words from file
 unique_words = []
 # open file and read the content in a list
-with open(r'./dataloaders/unique_words.txt', 'r') as fp:
+with open(r'./dataloaders/more_unique_words.txt', 'r', encoding='utf-8') as fp:
     for line in fp:
         # remove linebreak from a current name
         # linebreak is the last character of each line
@@ -23,8 +19,8 @@ with open(r'./dataloaders/unique_words.txt', 'r') as fp:
         # add current item to the list
         unique_words.append(x)
 
-
-test_dl = torch.load("./dataloaders/test_dl_32_batch.pt")
+# Loading dataloader from file
+test_dl = torch.load("./dataloaders/bigger_test_dl_32_batch.pt")
 
 # Initialize the model
 model = LstmNet(len(unique_words))
@@ -44,7 +40,7 @@ def test_model():
     ground_truth = []
     with torch.no_grad():
         for batch_idx, (tweet, price, targets) in enumerate(test_dl):
-            ## Add padding to the targets
+            # Add padding to the targets that are not correct size
             if targets.shape[0] != batch_size:
                 iter = batch_size - targets.shape[0]
                 for i in range(iter):
@@ -52,11 +48,15 @@ def test_model():
                     targets = torch.cat((targets, tensor))
             # Generate prediction
             prediction = model(torch.squeeze(tweet.type(torch.LongTensor)), price.type(torch.FloatTensor))
+
+            # Calculating loss
             loss = criterion(torch.squeeze(prediction).type(torch.FloatTensor), targets.type(torch.FloatTensor))
+
+            # Adding loss to list so it can be plotted later
             losses.append(loss.detach().numpy())
 
             for i in range(len(prediction)):
-                # Predicted class value round()
+                # Predicted class value rounded
                 predicted_class = round(float(prediction[i]))
                 predictions.append(predicted_class)
 
@@ -78,24 +78,27 @@ def test_model():
 
 
 def plotLoss():
+    """
+    Method that plots the loss over epochs
+    """
     x_values = list(range(len(losses)))
 
     # plotting the points
     plt.plot(x_values, losses)
 
-    # naming the x axis
+    # x axis
     plt.xlabel('Epochs')
-    # naming the y axis
+    # y axis
     plt.ylabel('Loss')
 
     plt.title('Test Loss graph')
 
-    # function to show the plot
     plt.show()
 
 
 # Loading a model
-model.load_state_dict(torch.load("./models/16_batch_bce.model"))
+model.load_state_dict(torch.load("./models/bigger_32_batch_mse.model"))
 
+# Testing and plotting the loss
 test_model()
 plotLoss()

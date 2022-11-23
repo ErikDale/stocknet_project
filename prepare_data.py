@@ -22,7 +22,6 @@ def combine_tweets_prices():
     # Combining the prices and tweets from the same dates
     # and putting them in one array
     combined = []
-
     for j in range(len(price_values)):
         keys = tweets[j].keys()
 
@@ -37,7 +36,7 @@ def combine_tweets_prices():
             for key in keys:
                 if key == dates[i]:
                     # Removing date column
-                    #price_values[i] = np.delete(price_values[i], 0)
+                    # price_values[i] = np.delete(price_values[i], 0)
                     keys_float = [float(j) for j in tweets[j][key]]
                     values_float = [float(k) for k in new_prices[i]]
                     combined.append([keys_float, values_float])
@@ -48,8 +47,9 @@ def combine_tweets_prices():
 
     targets = []
 
+    # Seeing if the price went up or down and giving the appropriate label (1 and 0)
     for i in range(1, len(target_combined)):
-        if target_combined[i][1][4] > target_combined[i-1][1][4]:
+        if target_combined[i][1][4] > target_combined[i - 1][1][4]:
             targets.append(0)
         else:
             targets.append(1)
@@ -64,7 +64,6 @@ def combine_tweets_prices():
     for i in range(len(combined)):
         if i > len(combined) - 5:
             break
-        # value = []
         tweet = []
         price = []
         for j in range(i, i + 5):
@@ -72,11 +71,10 @@ def combine_tweets_prices():
             combined[j][1][0:5] = normalize(combined[j][1][0:5], 0, 1)
             tweet += combined[j][0]
             price.append([combined[j][1]])
-            # value.append(combined[j])
         tweets.append(tweet)
         prices.append(price)
-        # values.append(value)
 
+    # Making them same length as the target list
     tweets = tweets[:len(targets)]
     prices = prices[:len(targets)]
     return tweets, prices, targets, uniquewords
@@ -88,20 +86,8 @@ def createDataset():
     """
     tweets, prices, targets, unique_words = combine_tweets_prices()
 
-    # Transform for values
-    transform = transforms.Compose([
-        transforms.ToTensor()
-    ]
-    )
-
-    # Transform for targets
-    target_transform = transforms.Compose([
-        transforms.ToTensor()
-    ]
-    )
-
     # Initlaizes dataset
-    dataset = CustomDataset(tweets, prices, targets, transform, target_transform)
+    dataset = CustomDataset(tweets, prices, targets)
 
     # Splits the dataset 80% train, 20% test
     train_ds, test_ds = random_split(dataset, [round(len(dataset) * 0.8), round(len(dataset) * 0.2)])
@@ -115,29 +101,29 @@ def createDataset():
     torch.save(test_dl, "dataloaders/bigger_test_dl_16_batch.pt")
 
     # open file in write mode
-   # with open(r'./dataloaders/more_unique_words.txt', 'w', encoding="utf-8") as fp:
-         #for item in unique_words:
+    with open(r'./dataloaders/more_unique_words.txt', 'w', encoding="utf-8") as fp:
+        for item in unique_words:
             # write each item on a new line
-            #fp.write("%s\n" % item)
+            fp.write("%s\n" % item)
 
     return train_dl, test_dl, unique_words
 
 
-# Dataset class
 class CustomDataset(Dataset):
     """
     Dataset class
     """
-    def __init__(self, tweets, prices, targets, transform, target_tranform):
+
+    def __init__(self, tweets, prices, targets):
         tweets = np.array(tweets)
         prices = np.array(prices)
         targets = np.array(targets)
         self.tweets = torch.from_numpy(tweets)
         self.prices = torch.from_numpy(prices)
-        self.targets = torch.from_numpy(targets)  # n_samples, 1
+        self.targets = torch.from_numpy(targets)
+
+        # Number of samples
         self.n_samples = len(tweets)
-        self.transform = transform
-        self.target_transform = target_tranform
 
     def __getitem__(self, index):
         tweet_item = self.tweets[index]
@@ -150,13 +136,23 @@ class CustomDataset(Dataset):
 
 
 def extract_prices():
+    """
+    Method that extracts the prices
+    """
+
+    # The stocknet-dataset-master folder is gotten from cloning this GitHub:
+    # https://github.com/yumoxu/stocknet-dataset
     price_files = os.listdir("./stocknet-dataset-master/price/raw/")
+
+    # Wanted columns
     cols = [0, 1, 2, 3, 4, 5]
 
     prices = []
+
+    # Going through each price file in the folder (./stocknet-dataset-master/price/raw/)
     for file in price_files:
         price_list = np.loadtxt("./stocknet-dataset-master/price/raw/" + file, delimiter=",", dtype=str, usecols=cols,
-                          skiprows=1)
+                                skiprows=1)
         prices.append(price_list)
 
     return prices
@@ -195,41 +191,53 @@ def read_text_file(file_path, dict, file_name):
 
 
 def extract_tweets():
+    """
+    Method that extracts the tweets from the dataset
+    """
+    # The stocknet-dataset-master folder is gotten from cloning this GitHub:
+    # https://github.com/yumoxu/stocknet-dataset
     tweet_folders = os.listdir("./stocknet-dataset-master/tweet/preprocessed")
 
     all_unique_words = []
 
-
     dict_array = []
 
+    # Going through each folder in the "./stocknet-dataset-master/tweet/preprocessed" folder
     for folder in tweet_folders:
         dict = {}
         path = "./stocknet-dataset-master/tweet/preprocessed/" + folder
         for file in os.listdir(path):
             file_path = f"{path}/{file}"
+
+            # Reading the tweets
             read_text_file(file_path, dict, file)
 
+        # Creating vocabulary
         allwords = ' '.join(dict.values()).lower().split(' ')
         uniquewords = list(set(allwords))
         all_unique_words += uniquewords
+
         # Converting each tweet to numbers
         for key in dict.keys():
             string = dict[key]
+
             # Removing non-alphanumeric character from the tweets
             string = re.sub(r'[^A-Za-z0-9 ]+', '', string)
             dict[key] = string
+
+            # Making tweets into vectors of numbers
             vector = make_text_into_numbers(string, uniquewords)
-            # model = TweetLstmNet(len(uniquewords))
-            # vector = torch.unsqueeze(torch.LongTensor(vector), dim=0)
-            # hidden_vector = model(vector)
             dict[key] = vector
+
+        # Appending dictionary to list
         dict_array.append(dict)
     return dict_array, all_unique_words
 
 
 def normalize(arr, t_min, t_max):
     """
-    Method that normalizes an array
+    Method that normalizes an array.
+    Gotten from: https://www.geeksforgeeks.org/how-to-normalize-an-array-in-numpy-in-python/
     """
     norm_arr = []
     diff = t_max - t_min
@@ -238,6 +246,3 @@ def normalize(arr, t_min, t_max):
         temp = (((i - min(arr)) * diff) / diff_arr) + t_min
         norm_arr.append(temp)
     return norm_arr
-
-
-
