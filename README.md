@@ -16,3 +16,16 @@ The ``models`` folder contains the different models we have created written to f
 #### stocknet-dataset-manster
 The ``stocknet-dataset-manster`` folder contains the stock dataset we used in the project.
 
+### Files
+
+#### models.py
+The ``models.py`` file is a file that contains the model we used in the project.
+
+#### prepare_data.py
+The ``prepare_data.py`` file is a file that contains methods for extracting and creating the dataloaders used to train and test our model.
+
+#### train.py
+The ``train.py`` file contains the functionality for traning our model.
+
+#### test.py
+The ``test.py`` file contains the functionality for testing our trained model.
