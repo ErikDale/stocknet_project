@@ -33,5 +33,7 @@ The ``test.py`` file contains the functionality for testing our trained model.
 
 ## Installing Dependencies
 To install the needed dependencies use the command: 
-```pip install -r requirements.txt```
+```
+pip install -r requirements.txt
+```
 
